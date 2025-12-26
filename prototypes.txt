@@ -1,0 +1,539 @@
+# aircraft_recovery_bp.py
+- def _empty_branch_state(tails: Iterable[int]) -> Dict[str, Dict[int, Set[int]]]
+- def _copy_branch_state(state: Dict[str, Dict[int, Set[int]]]) -> Dict[str, Dict[int, Set[int]]]
+- def solve_branch_and_price(*, input_json_path: str='data/flights_sample.json', output_dir: str='data', delay_injection_overrides: Optional[Dict[int, float]]=None, oos_csv_path: Optional[str]=None, disrupted_tails: Optional[Iterable[int]]=None, reachability_logger: bool=False, reachability_log_depth: int=2, reachability_log_items: int=12, alternate_impute: bool=True, max_cols_per_tail: int=2, use_multi_objective: bool=False, max_labels_per_node: Optional[int]=2000, delta_mx: Optional[float]=None, delta_mx_pruning: bool=False, init_via_comb_artvar_seedroute: bool=False, injection_on_first_flight: bool=False, back_arc_implementation: bool=False, path_track_logging: bool=False) -> Tuple[Model, AircraftRecoveryBPricer]
+- class AircraftRecoveryBPricer:
+  - def __init__(self, *, bundle: FlightsBundle, networks: Dict[int, PricingNetwork], tails: List[int], cons_cover: Dict[int, object], cons_tail: Dict[int, object], delay_penalty_by_fid: Dict[int, float], delay_injection_by_tail: Dict[int, float], etr_by_tail: Optional[Dict[int, float]]=None, branch_state: Dict[int, Dict[str, Dict[int, Set[int]]]], max_cols_per_tail: int=2, use_multi_objective: bool=False, max_labels_per_node: Optional[int]=2000, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, path_track_logging: bool=False, **kwargs) -> None
+  - def _duals(self, farkas: bool) -> Tuple[Dict[int, float], Dict[int, float]]
+  - def _price_tail(self, tail: int, *, dual_cover: Dict[int, float], dual_tail: Dict[int, float], cover_set: Set[int], mandatory: Set[int], forbidden: Set[int]) -> List[RouteColumnBP]
+  - def _add_column(self, col: RouteColumnBP) -> None
+  - def price(self, farkas: bool)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+- class FlightTailBranchEvent:
+  - def __init__(self, branch_state: Dict[int, Dict[str, Dict[int, Set[int]]]])
+  - def eventinit(self)
+  - def eventexec(self, event)
+- class FlightTailBranchRule:
+  - def __init__(self, tails: List[int], flights_F: Set[int], branch_state: Dict[int, Dict[str, Dict[int, Set[int]]]], *args, **kwargs)
+  - def _select_fractional(self) -> Optional[Tuple[int, int, float]]
+  - def branchexeclp(self, allowaddcons)
+
+# aircraft_recovery_cg.py
+- def build_pricing_networks_in_memory(input_json_path: str, *, output_dir: str='data', output_prefix: str='pricing_tail_', alternate_impute: bool=True, tails: Optional[List[int]]=None) -> Tuple[FlightsBundle, Dict[int, PricingNetwork]]
+- def build_pricing_networks_in_memory_with_back_arcs(input_json_path: str, *, output_dir: str='data', output_prefix: str='pricing_tail_backarc_', min_slack: int=-210, alternate_impute: bool=True, tails: Optional[List[int]]=None) -> Tuple[FlightsBundle, Dict[int, PricingNetwork]]
+- def build_delay_injections(tails: Iterable[int], overrides: Optional[Dict[int, float]]=None) -> Dict[int, float]
+- def build_delay_penalties(bundle: FlightsBundle) -> Dict[int, float]
+- def compute_path_delay_cost(path: List[int], flights_by_fid: Dict[int, Flight], delay_penalty_by_fid: Dict[int, float], initial_delay_minutes: float, *, injection_on_first_flight: bool=False) -> float
+- def _imputed_delay_for_path(path: List[int], flights_by_fid: Dict[int, Flight], *, tail: int, etr_by_tail: Optional[Dict[int, float]]=None) -> float
+- def build_route_schedule(path: List[int], flights_by_fid: Dict[int, Flight], *, initial_delay_minutes: float, injection_on_first_flight: bool=False, skipped_mx: Optional[Iterable[int]]=None) -> Dict[int, Dict[str, Optional[float]]]
+- def _max_delay_in_schedule(schedule: Dict[int, Dict[str, Optional[float]]]) -> float
+- def _delay_breakdown_for_path(path: List[int], flights_by_fid: Dict[int, Flight], delay_penalty_by_fid: Dict[int, float], initial_delay_minutes: float, *, injection_on_first_flight: bool=False) -> List[Tuple[int, float, float, float]]
+- def _cover_fids(bundle: FlightsBundle) -> List[int]
+- def _cancel_penalty_for_flight(flight: Flight, default_penalty: float) -> float
+- def _covered_fids_for_path(path: List[int], flights_by_fid: Dict[int, Flight], cover_set: set[int]) -> List[int]
+- def _add_route_var(model: Model, *, name: str, tail: int, path: List[int], covered_fids: List[int], cons_cover: Dict[int, object], cons_tail: Dict[int, object], cost: float, priced: bool, schedule: Optional[Dict[int, Dict[str, Optional[float]]]]=None, skipped_mx: Optional[Iterable[int]]=None) -> object
+- def build_master_model(bundle: FlightsBundle, *, delay_injection_by_tail: Dict[int, float], etr_by_tail: Optional[Dict[int, float]]=None, delay_penalty_by_fid: Dict[int, float], cancel_penalty_default: float=1000000.0, path_track_logging: bool=False, init_via_comb_artvar_seedroute: bool=False, delta_mx: Optional[float]=None, delta_mx_pruning: bool=False, injection_on_first_flight: bool=False, artificial_route_cost: float=1000000000000.0) -> Tuple[Model, Dict[str, object]]
+- def solve_root_cg(*, input_json_path: str='data/flights_sample.json', output_dir: str='data', delay_injection_overrides: Optional[Dict[int, float]]=None, oos_csv_path: Optional[str]=None, disrupted_tails: Optional[Iterable[int]]=None, reachability_logger: bool=False, reachability_log_depth: int=2, reachability_log_items: int=12, activate_swap_reaschability_pricing_restriction: bool=False, alternate_impute: bool=True, max_cols_per_tail: int=2, use_multi_objective: bool=False, max_labels_per_node: Optional[int]=2000, back_arc_implementation: bool=False, min_slack: int=-210, delta_mx: Optional[float]=None, delta_mx_pruning: bool=False, init_via_comb_artvar_seedroute: bool=False, injection_on_first_flight: bool=False, final_full_column_printing_log: bool=False, final_solution_csv_path: Optional[str]=None, final_solution_csv_value_tol: float=0.0, final_solution_csv_include_route_meta: bool=True, path_track_logging: bool=False) -> Tuple[Model, AircraftRecoveryRootPricer]
+- def _print_fractional_column_summary(model: Model, *, prefixes: Tuple[str, ...]=('route_', 'seed_route_'), tol: float=1e-06) -> None
+- def _print_cg_objective(model: Model) -> None
+- def _print_final_columns(model: Model, *, prefixes: Tuple[str, ...]=('route_', 'seed_route_')) -> None
+- def _write_final_solution_csv(model: Model, *, bundle: FlightsBundle, delay_penalty_by_fid: Dict[int, float], delay_injection_by_tail: Dict[int, float], etr_by_tail: Optional[Dict[int, float]]=None, output_path: str, prefixes: Tuple[str, ...]=('route_', 'seed_route_'), value_tol: float=0.0, include_route_meta: bool=True, injection_on_first_flight: bool=False) -> None
+- class AircraftRecoveryRootPricer:
+  - def __init__(self, *, bundle: FlightsBundle, networks: Dict[int, PricingNetwork], tails: List[int], cons_cover: Dict[int, object], cons_tail: Dict[int, object], delay_penalty_by_fid: Dict[int, float], delay_injection_by_tail: Dict[int, float], etr_by_tail: Optional[Dict[int, float]]=None, max_cols_per_tail: int=2, use_multi_objective: bool=False, max_labels_per_node: Optional[int]=2000, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, back_arc_implementation: bool=False, path_track_logging: bool=False, **kwargs) -> None
+  - def _duals(self, farkas: bool) -> Tuple[Dict[int, float], Dict[int, float]]
+  - def _price_tail(self, tail: int, *, dual_cover: Dict[int, float], dual_tail: Dict[int, float], cover_set: set[int]) -> List[RouteColumn]
+  - def _add_column(self, col: RouteColumn) -> None
+  - def price(self, farkas: bool) -> Dict[str, SCIP_RESULT]
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# bnp_workshop\bnp.py
+- def extended_binpacking(sizes: List[int], capacity: int)
+
+# bnp_workshop\branching_eventhdlr.py
+- class RyanFosterBranchingEventhdlr:
+  - def __init__(self, branching_decisions)
+  - def eventinit(self)
+  - def eventexec(self, event)
+
+# bnp_workshop\compact.py
+- def binpacking_compact(sizes: List[int], capacity: int) -> Model
+
+# bnp_workshop\generator.py
+- def random_bin_packing_instance(num_items: int, capacity: int, seed: int=0)
+- def test_random_bin_packing_instance()
+
+# bnp_workshop\pricer.py
+- class KnapsackPricer:
+  - def __init__(self, sizes, capacity, constraints, branching_decisions, *args, **kwargs)
+  - def price(self, farkas)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# bnp_workshop\pricing_knapsack.py
+- def pricing_solver(sizes: List[int], capacity: int, dual_solution: dict[float], together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+- def solve_knapsack(sizes: List[int], values: List[float], capacity: int) -> tuple[float, List[int]]
+- def solve_knapsack_with_constraints(sizes: List[int], values: List[float], capacity: int, together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+
+# bnp_workshop\ryan_foster.py
+- def all_fractional_pairs(patterns_with_vals: List[tuple[List[int], float]]) -> List[tuple[int, int]]
+- def choose_fractional_pair(patterns_with_vals: List[tuple[List[int], float]]) -> tuple[int, int]
+- class RyanFoster:
+  - def __init__(self, *args, **kwargs)
+  - def branchexeclp(self, allowaddcons)
+
+# bnp_workshop\Solutions\bnp.py
+- def extended_binpacking(sizes: List[int], capacity: int)
+
+# bnp_workshop\Solutions\branching_eventhdlr.py
+- class RyanFosterBranchingEventhdlr:
+  - def __init__(self, branching_decisions)
+  - def eventinit(self)
+  - def eventexec(self, event)
+
+# bnp_workshop\Solutions\compact.py
+- def binpacking_compact(sizes: List[int], capacity: int) -> Model
+
+# bnp_workshop\Solutions\generator.py
+- def random_bin_packing_instance(num_items: int, capacity: int, seed: int=0)
+- def test_random_bin_packing_instance()
+
+# bnp_workshop\Solutions\pricer.py
+- class KnapsackPricer:
+  - def __init__(self, sizes, capacity, constraints, branching_decisions, *args, **kwargs)
+  - def price(self, farkas)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# bnp_workshop\Solutions\pricing_knapsack.py
+- def pricing_solver(sizes: List[int], capacity: int, dual_solution: dict[float], together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+- def solve_knapsack(sizes: List[int], values: List[float], capacity: int) -> tuple[float, List[int]]
+- def solve_knapsack_with_constraints(sizes: List[int], values: List[float], capacity: int, together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+
+# bnp_workshop\Solutions\ryan_foster.py
+- def all_fractional_pairs(patterns_with_vals: List[tuple[List[int], float]]) -> List[tuple[int, int]]
+- def choose_fractional_pair(patterns_with_vals: List[tuple[List[int], float]]) -> tuple[int, int]
+- class RyanFoster:
+  - def __init__(self, *args, **kwargs)
+  - def branchexeclp(self, allowaddcons)
+
+# bnp_workshop\Solutions\test_bnp.py
+- def test_bnp()
+
+# bnp_workshop\Solutions\test_compact.py
+- def test_compact()
+
+# bnp_workshop\Solutions\test_fractional_pairs.py
+- def test_fractional_pairs()
+- def test_fractional_pairs2()
+
+# bnp_workshop\Solutions\test_knapsack_with_constraints.py
+- def test_knapsack_with_constraints()
+- def test_knapsack_with_constraints2()
+- def test_knapsack_with_constraints3()
+
+# bnp_workshop\Solutions\test_pricing_knapsack.py
+- def test_solve_knapsack()
+
+# bnp_workshop\test_bnp.py
+- def test_bnp()
+
+# bnp_workshop\test_compact.py
+- def test_compact()
+
+# bnp_workshop\test_fractional_pairs.py
+- def test_fractional_pairs()
+- def test_fractional_pairs2()
+
+# bnp_workshop\test_knapsack_with_constraints.py
+- def test_knapsack_with_constraints()
+- def test_knapsack_with_constraints2()
+- def test_knapsack_with_constraints3()
+
+# bnp_workshop\test_pricing_knapsack.py
+- def test_solve_knapsack()
+
+# colgen2025-main\colgen2025-main\bnp\bnp.py
+- def extended_binpacking(sizes: List[int], capacity: int)
+
+# colgen2025-main\colgen2025-main\bnp\branching_eventhdlr.py
+- class RyanFosterBranchingEventhdlr:
+  - def __init__(self, branching_decisions)
+  - def eventinit(self)
+  - def eventexec(self, event)
+
+# colgen2025-main\colgen2025-main\bnp\compact.py
+- def binpacking_compact(sizes: List[int], capacity: int) -> Model
+
+# colgen2025-main\colgen2025-main\bnp\generator.py
+- def random_bin_packing_instance(num_items: int, capacity: int, seed: int=0)
+- def test_random_bin_packing_instance()
+
+# colgen2025-main\colgen2025-main\bnp\pricer.py
+- class KnapsackPricer:
+  - def __init__(self, sizes, capacity, constraints, branching_decisions, *args, **kwargs)
+  - def price(self, farkas)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# colgen2025-main\colgen2025-main\bnp\pricing_knapsack.py
+- def pricing_solver(sizes: List[int], capacity: int, dual_solution: dict[float], together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+- def solve_knapsack(sizes: List[int], values: List[float], capacity: int) -> tuple[float, List[int]]
+- def solve_knapsack_with_constraints(sizes: List[int], values: List[float], capacity: int, together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+
+# colgen2025-main\colgen2025-main\bnp\ryan_foster.py
+- def all_fractional_pairs(patterns_with_vals: List[tuple[List[int], float]]) -> List[tuple[int, int]]
+- def choose_fractional_pair(patterns_with_vals: List[tuple[List[int], float]]) -> tuple[int, int]
+- class RyanFoster:
+  - def __init__(self, *args, **kwargs)
+  - def branchexeclp(self, allowaddcons)
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\bnp.py
+- def extended_binpacking(sizes: List[int], capacity: int)
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\branching_eventhdlr.py
+- class RyanFosterBranchingEventhdlr:
+  - def __init__(self, branching_decisions)
+  - def eventinit(self)
+  - def eventexec(self, event)
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\compact.py
+- def binpacking_compact(sizes: List[int], capacity: int) -> Model
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\generator.py
+- def random_bin_packing_instance(num_items: int, capacity: int, seed: int=0)
+- def test_random_bin_packing_instance()
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\pricer.py
+- class KnapsackPricer:
+  - def __init__(self, sizes, capacity, constraints, branching_decisions, *args, **kwargs)
+  - def price(self, farkas)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\pricing_knapsack.py
+- def pricing_solver(sizes: List[int], capacity: int, dual_solution: dict[float], together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+- def solve_knapsack(sizes: List[int], values: List[float], capacity: int) -> tuple[float, List[int]]
+- def solve_knapsack_with_constraints(sizes: List[int], values: List[float], capacity: int, together: set[tuple[int, int]], apart: set[tuple[int, int]]) -> tuple[float, List[int]]
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\ryan_foster.py
+- def all_fractional_pairs(patterns_with_vals: List[tuple[List[int], float]]) -> List[tuple[int, int]]
+- def choose_fractional_pair(patterns_with_vals: List[tuple[List[int], float]]) -> tuple[int, int]
+- class RyanFoster:
+  - def __init__(self, *args, **kwargs)
+  - def branchexeclp(self, allowaddcons)
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\test_bnp.py
+- def test_bnp()
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\test_compact.py
+- def test_compact()
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\test_fractional_pairs.py
+- def test_fractional_pairs()
+- def test_fractional_pairs2()
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\test_knapsack_with_constraints.py
+- def test_knapsack_with_constraints()
+- def test_knapsack_with_constraints2()
+- def test_knapsack_with_constraints3()
+
+# colgen2025-main\colgen2025-main\bnp\Solutions\test_pricing_knapsack.py
+- def test_solve_knapsack()
+
+# colgen2025-main\colgen2025-main\bnp\test_bnp.py
+- def test_bnp()
+
+# colgen2025-main\colgen2025-main\bnp\test_compact.py
+- def test_compact()
+
+# colgen2025-main\colgen2025-main\bnp\test_fractional_pairs.py
+- def test_fractional_pairs()
+- def test_fractional_pairs2()
+
+# colgen2025-main\colgen2025-main\bnp\test_knapsack_with_constraints.py
+- def test_knapsack_with_constraints()
+- def test_knapsack_with_constraints2()
+- def test_knapsack_with_constraints3()
+
+# colgen2025-main\colgen2025-main\bnp\test_pricing_knapsack.py
+- def test_solve_knapsack()
+
+# colgen2025-main\colgen2025-main\intro\first_model.py
+- def first_model()
+
+# colgen2025-main\colgen2025-main\intro\print_version.py
+- def print_version()
+
+# colgen2025-main\colgen2025-main\intro\Solutions\first_model.py
+- def first_model()
+
+# colgen2025-main\colgen2025-main\intro\Solutions\print_version.py
+- def print_version()
+
+# colgen2025-main\colgen2025-main\intro\Solutions\solve_with_limits.py
+- def solve_with_limits()
+
+# colgen2025-main\colgen2025-main\intro\Solutions\test_first_model.py
+- def test_first_model()
+
+# colgen2025-main\colgen2025-main\intro\Solutions\test_print_version.py
+- def test_print_version(mock_stdout)
+
+# colgen2025-main\colgen2025-main\intro\solve_with_limits.py
+- def solve_with_limits()
+
+# colgen2025-main\colgen2025-main\intro\test_first_model.py
+- def test_first_model()
+
+# colgen2025-main\colgen2025-main\intro\test_print_version.py
+- def test_print_version(mock_stdout)
+
+# colgen2025-main\colgen2025-main\modeling\knapsack.py
+- def linear_knapsack(capacity, weights, values)
+- def binary_knapsack(capacity, weights, values)
+- def integer_knapsack(capacity, weights, values)
+- def limited_knapsack(capacity, weights, values, max_items)
+
+# colgen2025-main\colgen2025-main\modeling\Solutions\knapsack.py
+- def linear_knapsack(capacity, weights, values)
+- def binary_knapsack(capacity, weights, values)
+- def integer_knapsack(capacity, weights, values)
+- def limited_knapsack(capacity, weights, values, max_items)
+
+# colgen2025-main\colgen2025-main\modeling\Solutions\test_knapsack.py
+- def test_linear_knapsack(capacity, weights, values, expected)
+- def test_binary_knapsack(capacity, weights, values, expected)
+- def test_integer_knapsack(capacity, weights, values, expected)
+- def test_limited_knapsack(capacity, weights, values, max_items, expected)
+
+# colgen2025-main\colgen2025-main\modeling\test_knapsack.py
+- def test_linear_knapsack(capacity, weights, values, expected)
+- def test_binary_knapsack(capacity, weights, values, expected)
+- def test_integer_knapsack(capacity, weights, values, expected)
+- def test_limited_knapsack(capacity, weights, values, max_items, expected)
+
+# data_utils.py
+- def combine_total_costs(csv1_path: str, csv2_path: str, out_path: str) -> None
+- def csv_creator_starttime_dependent(flights_csv_path: str, oos_csv_path: str, start_time: int, *, output_dir: Optional[str]=None, force: bool=False) -> Tuple[Path, Path]
+
+# generator.py
+- def load_airports_from_flights_json(path: str) -> List[str]
+- def _choose_airports(airports: List[str], *, num_airports: int, num_hubs: int, rng: random.Random) -> Tuple[List[str], List[str], List[str]]
+- def _generate_tail_sequence(tail: int, *, hubs: List[str], spokes: List[str], flights_per_tail: int, rng: random.Random, start_time_min: int, mx_every: int, hub_hub_block: Tuple[int, int], hub_spoke_block: Tuple[int, int], spoke_hub_block: Tuple[int, int], turn_range: Tuple[int, int], mx_duration: int, delay_penalty_revenue: int, delay_penalty_mx: int, cancel_penalty_revenue: int, cancel_penalty_mx: int, fid_start: int) -> Tuple[List[Dict[str, object]], int]
+- def _build_alternates(flights: List[Dict[str, object]], *, window_minutes: int) -> None
+- def _station_at_time(flights: List[Dict[str, object]], start_time: int) -> Optional[str]
+- def _write_oos_csv(*, tails: Iterable[int], flights_by_tail: Dict[int, List[Dict[str, object]]], start_time: int, oos_fraction: float, duration_range: Tuple[int, int], rng: random.Random, out_path: str) -> Path
+- def _to_int(value: object) -> Optional[int]
+- def _load_flights_csv_for_oos(flights_csv_path: str) -> Tuple[Dict[int, List[Dict[str, object]]], List[int], int, int]
+- def _choose_oos_start_time(flights: List[Dict[str, object]], *, start_time: int, duration: int, rng: random.Random, avoid_midair: bool) -> int
+- def generate_oos_from_flights_csv(*, flights_csv_path: str, mean_oos_duration: float, std_oos_duration: float, affected_fraction: float, oos_out_csv_path: Optional[str]=None, seed: int=7, start_time: Optional[int]=None, avoid_midair_oos: bool=True) -> Tuple[Path, int]
+- def write_clean_csv(flights: List[Dict[str, object]], out_path: str) -> Path
+- def generate_synthetic_instance(*, airports_source_json: str, out_csv_path: str, seed: int=7, num_airports: int=40, num_hubs: int=5, num_tails: int=100, flights_per_tail: int=30, horizon_minutes: int=3 * 24 * 60, mx_every: int=6, alt_window_minutes: int=180, oos_fraction: float=0.1, oos_duration_range: Tuple[int, int]=(120, 360), planner_start_min: Optional[int]=None, oos_out_csv_path: str='data/oos_tails_generator_synth3day.csv') -> Tuple[Path, Path, int]
+
+# main.py
+- def main()
+
+# models.py
+- class SwapBlock:
+  - def nodes(self) -> List[int]
+
+# Network.py
+- def is_true(x) -> bool
+- def turn_eff(is_mx: bool, turn_val: int) -> int
+- def bfs_reachable(adj: Dict[str, List[Arc]], start: str) -> Set[str]
+- def reverse_adj(adj: Dict[str, List[Arc]]) -> Dict[str, List[str]]
+- def bfs_reachable_untyped(radj: Dict[str, List[str]], start: str) -> Set[str]
+- def build_global_timewin_adj(flights_df: pd.DataFrame, window_min: int=180) -> Dict[str, List[Arc]]
+- def build_tail_sequences(flights_df: pd.DataFrame) -> Dict[int, List[str]]
+- def extract_mx_blocks(seq_by_tail: Dict[int, List[str]], is_mx: Dict[str, bool]) -> List[Tuple[int, str, List[str], str]]
+- def build_tail_networks(flights_csv: str='flights.csv', window_min: int=180) -> Dict[int, TailNetwork]
+
+# other files\arp_branch_price.py
+- def _empty_branch_state(tails: List[int]) -> Dict
+- def _copy_branch_state(state: Dict) -> Dict
+- def compute_delay_cost(path: List[str], dep_time: Dict[str, int], arr_time: Dict[str, int], turn_time: Dict[str, int], earliest_available: int, per_min_cost: float=100.0) -> float
+- def load_oos_availability(oos_csv: Optional[str]) -> Dict[int, int]
+- def _add_route_var(model: Model, name: str, tail: int, path: List[str], flights_F: Set[str], maint_FM: Set[str], cons_cover: Dict[str, object], cons_tail: Dict[int, object], cons_maint: Dict[str, object], cost: float=0.0)
+- def build_master(flights_csv: str, window_min: int=180, mx_skip_penalty: float=100000.0, oos_csv: Optional[str]='oos_tails.csv') -> Tuple[Model, Dict]
+- def solve_branch_and_price(flights_csv: str='flights.csv', window_min: int=180, mx_skip_penalty: float=100000.0, max_new_cols: int=2, oos_csv: Optional[str]='oos_tails.csv') -> Model
+- class TailPricing:
+  - def __init__(self, flights_df: pd.DataFrame, in_horizon: Set[str], maint: Set[str], network: TailNetwork, earliest_available: int=0)
+  - def _score(self, fid: str, dual_pi: Dict[str, float], dual_rho: Dict[str, float]) -> float
+  - def price(self, dual_pi: Dict[str, float], dual_rho: Dict[str, float], dual_sigma: float, mandatory: Set[str], forbidden: Set[str]) -> Optional[RouteColumn]
+- class AircraftRecoveryPricer:
+  - def __init__(self, tails: List[int], pricers: Dict[int, TailPricing], cons_cover: Dict[str, object], cons_tail: Dict[int, object], cons_maint: Dict[str, object], branch_state: Dict[int, Dict], max_new_cols: int=1, *args, **kwargs)
+  - def _duals(self, farkas: bool) -> Tuple[Dict[str, float], Dict[int, float], Dict[str, float]]
+  - def _add_col(self, tail: int, col: RouteColumn)
+  - def price(self, farkas: bool)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+- class FlightTailBranch:
+  - def __init__(self, branch_state: Dict[int, Dict])
+  - def eventinit(self)
+  - def eventexec(self, event)
+- class FlightTailBranchrule:
+  - def __init__(self, tails: List[int], flights_F: Set[str], branch_state: Dict[int, Dict], *args, **kwargs)
+  - def _select_fractional(self) -> Optional[Tuple[str, int, float]]
+  - def branchexeclp(self, allowaddcons)
+
+# other files\backup.py
+- def _empty_branch_state(tails: List[int]) -> Dict
+- def _copy_branch_state(state: Dict) -> Dict
+- def _add_route_var(model: Model, name: str, tail: int, path: List[str], flights_F: Set[str], maint_FM: Set[str], cons_cover: Dict[str, object], cons_tail: Dict[int, object], cons_maint: Dict[str, object], cost: float=0.0)
+- def build_master(flights_csv: str, window_min: int=180, mx_skip_penalty: float=100000.0) -> Tuple[Model, Dict]
+- def solve_branch_and_price(flights_csv: str='flights.csv', window_min: int=180, mx_skip_penalty: float=100000.0, max_new_cols: int=2) -> Model
+- class TailPricing:
+  - def __init__(self, flights_df: pd.DataFrame, in_horizon: Set[str], maint: Set[str], network: TailNetwork)
+  - def _score(self, fid: str, dual_pi: Dict[str, float], dual_rho: Dict[str, float]) -> float
+  - def price(self, dual_pi: Dict[str, float], dual_rho: Dict[str, float], dual_sigma: float, mandatory: Set[str], forbidden: Set[str]) -> Optional[RouteColumn]
+- class AircraftRecoveryPricer:
+  - def __init__(self, tails: List[int], pricers: Dict[int, TailPricing], cons_cover: Dict[str, object], cons_tail: Dict[int, object], cons_maint: Dict[str, object], branch_state: Dict[int, Dict], max_new_cols: int=1, *args, **kwargs)
+  - def _duals(self, farkas: bool) -> Tuple[Dict[str, float], Dict[int, float], Dict[str, float]]
+  - def _add_col(self, tail: int, col: RouteColumn)
+  - def price(self, farkas: bool)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+- class FlightTailBranch:
+  - def __init__(self, branch_state: Dict[int, Dict])
+  - def eventinit(self)
+  - def eventexec(self, event)
+- class FlightTailBranchrule:
+  - def __init__(self, tails: List[int], flights_F: Set[str], branch_state: Dict[int, Dict], *args, **kwargs)
+  - def _select_fractional(self) -> Optional[Tuple[str, int, float]]
+  - def branchexeclp(self, allowaddcons)
+
+# other files\math_model.py
+- def math_model(param_dict, time1, time2, output_file, allow_swaps=True)
+
+# other files\model_input.py
+- def _hdr(t)
+- def _to_plain(v)
+- def _fmt_list(xs, maxn=12)
+- def _print_dict(name, d, maxn=12, sort_keys=True)
+- def _print_list(name, L, maxn=50)
+- def _print_counts(Tails, F, FM, S, Eall_plan, Eplan_ff, Eplan_fm, Eplan_mf, Eplan_mm, Eskip_ff, Eskip_fm, Eskip_mf, Eskip_mm)
+- def print_swap_debug(La, Tails, F, FM, S, Smeta, Fs_map, Xs_map, U_ti, U_tj, S_to_v, Smove, Sreq_on, Sreq_off, Dest_by_s, Dests_index, Eall_plan=None, Eplan_ff=None, Eplan_fm=None, Eplan_mf=None, Eplan_mm=None, Eskip_ff=None, Eskip_fm=None, Eskip_mf=None, Eskip_mm=None, max_list=12)
+- def add_no_swap_sol(flights_df, Tails, OOS_TAIL_ETR, START_TIME, delta_max, FM)
+- def normalize_swap_options(val)
+- def delete_flights_before_start(flights_df, mxflt_df, connx_df, START_TIME, dep_col_candidates=('epoch_est_dep', 'epoch_sch_dep'), verbose=True)
+- def get_model_data(flights_df, tails_df, connx_df, mxflt_df, START_TIME, OOS_TAIL_ETR, OOS_TAIL_ETO, RECOVERY_HORIZON_HOURS, IN_MINS)
+
+# other files\MultiplePricers.py
+- def build_flights(schedule: Dict) -> List[Flight]
+- def build_adjacency(flights: List[Flight], min_turn: int) -> Dict[int, List[int]]
+- def sit_time(fi: Flight, fj: Flight) -> int
+- def dominates(a: Label, b: Label, mode: str) -> bool
+- def reconstruct(lbl: Label) -> List[int]
+- def price_paths(flights: List[Flight], adj: Dict[int, List[int]], duals: List[float], mode: str, params: Dict, max_new: int) -> List[Tuple[float, List[int], float]]
+- def build_and_solve(schedule_json: Dict)
+- def solve_restricted_integer_master(flights, params, pricer)
+- class Flight:
+  - def block(self) -> int
+- class IntegratedPricer:
+  - def __init__(self, flights, adjs, cons_crew, cons_pilot, cons_ac, params, *args, **kwargs)
+  - def _log(self, msg: str)
+  - def _get_duals(self, cons_map, farkas: bool)
+  - def _add_column(self, cons_map, mode: str, path_idx: List[int], true_cost: float)
+  - def _stop_check_when_no_cols(self, lpobj: Optional[float])
+  - def price(self, farkas: bool)
+  - def pricerredcost(self)
+  - def pricerfarkas(self)
+
+# pricing_labeling.py
+- def reconstruct_path(label: PricingLabel) -> List[int]
+- def reconstruct_path_scalar(label: PricingLabelScalar) -> List[int]
+- def _strip_dummy_nodes(path: List[int], bundle: FlightsBundle) -> List[int]
+- def _build_adjacency(arcs: List[PricingArc]) -> Dict[int, List[PricingArc]]
+- def _merge_skipped(current: Tuple[int, ...], add: Iterable[int], penalties: Dict[int, int]) -> Tuple[Tuple[int, ...], int]
+- def _mx_prefix(bundle: FlightsBundle, tail: int, fid: int, *, include_self: bool) -> set[int]
+- def _arc_slack_minutes(src: Flight, tgt: Flight) -> float
+- def _propagate_delay(current_delay: float, slack: float) -> float
+- def _imputed_delay_from_dummy(tgt: Flight, etr_by_tail: Optional[Dict[int, float]], tail: int) -> float
+- def _dominates(a: PricingLabel, b: PricingLabel, *, foreign: bool, foreign_use_mx: bool, compare_last_own: bool, eps: float) -> bool
+- def _dominates_scalar(a: PricingLabelScalar, b: PricingLabelScalar, *, foreign: bool, compare_last_own: bool, eps: float) -> bool
+- def label_pricing_network(net: PricingNetwork, bundle: FlightsBundle, *, reduced_cost_by_fid: Optional[Dict[int, float]]=None, delay_penalty_by_fid: Optional[Dict[int, float]]=None, delay_cost_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, foreign_use_mx: bool=False, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000, eps: float=1e-09) -> Dict[int, List[PricingLabel]]
+- def label_pricing_network_with_branching(net: PricingNetwork, bundle: FlightsBundle, *, reduced_cost_by_fid: Optional[Dict[int, float]]=None, delay_penalty_by_fid: Optional[Dict[int, float]]=None, delay_cost_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, foreign_use_mx: bool=False, compare_last_own: bool=True, mandatory_fids: Optional[Iterable[int]]=None, forbidden_fids: Optional[Iterable[int]]=None, max_labels_per_node: Optional[int]=2000, eps: float=1e-09) -> Dict[int, Dict[int, List[PricingLabelBranch]]]
+- def label_pricing_network_scalar(net: PricingNetwork, bundle: FlightsBundle, *, reduced_cost_by_fid: Optional[Dict[int, float]]=None, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000, track_delay_breakdown: bool=False, eps: float=1e-09) -> Dict[int, List[PricingLabelScalar]]
+- def label_pricing_network_scalar_with_branching(net: PricingNetwork, bundle: FlightsBundle, *, reduced_cost_by_fid: Optional[Dict[int, float]]=None, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, compare_last_own: bool=True, mandatory_fids: Optional[Iterable[int]]=None, forbidden_fids: Optional[Iterable[int]]=None, max_labels_per_node: Optional[int]=2000, track_delay_breakdown: bool=False, eps: float=1e-09) -> Dict[int, Dict[int, List[PricingLabelScalarBranch]]]
+- def build_delay_penalties_for_tail(bundle: FlightsBundle, tail: int, *, only_tail: bool=False) -> Dict[int, float]
+- def best_paths_to_sink(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, foreign_use_mx: bool=False, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000) -> List[Dict[str, object]]
+- def best_paths_to_sink_with_branching(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, foreign_use_mx: bool=False, compare_last_own: bool=True, mandatory_fids: Optional[Iterable[int]]=None, forbidden_fids: Optional[Iterable[int]]=None, max_labels_per_node: Optional[int]=2000) -> List[Dict[str, object]]
+- def best_paths_to_sink_with_back_arcs(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, foreign_use_mx: bool=False, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000) -> List[Dict[str, object]]
+- def best_paths_to_sink_scalar(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000, track_delay_breakdown: bool=False) -> List[Dict[str, object]]
+- def best_paths_to_sink_scalar_with_branching(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, compare_last_own: bool=True, mandatory_fids: Optional[Iterable[int]]=None, forbidden_fids: Optional[Iterable[int]]=None, max_labels_per_node: Optional[int]=2000, track_delay_breakdown: bool=False) -> List[Dict[str, object]]
+- def best_paths_to_sink_scalar_with_back_arcs(net: PricingNetwork, bundle: FlightsBundle, *, delay_penalty_by_fid: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, initial_delay_minutes: float=0.0, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, delta_max: Optional[float]=None, delta_max_pruning: bool=False, injection_on_first_flight: bool=False, reduced_cost_by_fid: Optional[Dict[int, float]]=None, top_k: int=5, compare_last_own: bool=True, max_labels_per_node: Optional[int]=2000, track_delay_breakdown: bool=False) -> List[Dict[str, object]]
+- def print_best_paths_for_tail(net: PricingNetwork, bundle: FlightsBundle, *, delay_minutes: int, top_k: int=5, penalty_only_tail: bool=False, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, etr_by_tail: Optional[Dict[int, float]]=None) -> None
+- def print_best_paths_for_tail_scalar(net: PricingNetwork, bundle: FlightsBundle, *, delay_minutes: int, top_k: int=5, penalty_only_tail: bool=False, injection_start_time: Optional[int]=None, injection_end_time: Optional[int]=None, track_delay_breakdown: bool=False, etr_by_tail: Optional[Dict[int, float]]=None) -> None
+
+# pricing_network_builder.py
+- def extract_mx_blocks(seq_by_tail: Dict[int, List[int]], flights_by_fid: Dict[int, Flight]) -> List[MxBlock]
+- def _build_swap_block(bundle: FlightsBundle, swap_fid: int) -> Optional[SwapBlock]
+- def build_alternate_block_pairs(bundle: FlightsBundle) -> List[BlockPair]
+- def _node_set_for_tail(bundle: FlightsBundle, tail: int) -> Set[int]
+- def _dummy_base_from_bundle(bundle: FlightsBundle) -> int
+- def _dummy_ids_for_tail(tail_index: int, base: int) -> Tuple[int, int]
+- def _dummy_labels_for_tail(tail: int, f0_id: int, fend_id: int) -> Dict[int, str]
+- def _adj_from_arcs(arcs: List[PricingArc]) -> Dict[int, List[int]]
+- def _is_time_feasible(source: Flight, target: Flight) -> bool
+- def _is_time_feasible_with_back_arcs(source: Flight, target: Flight, min_slack: int) -> bool
+- def _filter_arcs_by_time(arcs: List[PricingArc], flights_by_fid: Dict[int, Flight], *, dummy_nodes: Optional[Set[int]]=None) -> List[PricingArc]
+- def _filter_arcs_by_time_with_back_arcs(arcs: List[PricingArc], flights_by_fid: Dict[int, Flight], min_slack: int, *, dummy_nodes: Optional[Set[int]]=None) -> List[PricingArc]
+- def _reverse_adj(adj: Dict[int, List[int]]) -> Dict[int, List[int]]
+- def _reachable_nodes(adj: Dict[int, List[int]], start: int) -> Set[int]
+- def _prune_network(net: PricingNetwork) -> PricingNetwork
+- def _add_own_mx_skip_arcs(block: MxBlock, node_set: Set[int], builder: ArcBuilder) -> None
+- def _add_foreign_mx_skip_arc(block: MxBlock, node_set: Set[int], builder: ArcBuilder) -> None
+- def _add_interblock_arcs_for_tail(tail: int, pair: BlockPair, node_set: Set[int], builder: ArcBuilder) -> None
+- def build_pricing_network_for_tail(tail: int, bundle: FlightsBundle, mx_blocks: List[MxBlock], block_pairs: List[BlockPair], *, alternate_impute: bool=True, dummy_base: Optional[int]=None) -> PricingNetwork
+- def build_pricing_network_for_tail_with_back_arcs(tail: int, bundle: FlightsBundle, mx_blocks: List[MxBlock], block_pairs: List[BlockPair], *, min_slack: int=-210, alternate_impute: bool=True, dummy_base: Optional[int]=None) -> PricingNetwork
+- def pricing_network_to_core_json(net: PricingNetwork, bundle: FlightsBundle, *, source_file: Optional[str]=None) -> Dict[str, Any]
+- def build_pricing_networks(input_json_path: Union[str, Path], *, tails: Optional[List[int]]=None, output_prefix: str='pricing_tail_', output_dir: Optional[Path]=None, alternate_impute: bool=True) -> Dict[int, str]
+- def build_pricing_networks_with_back_arcs(input_json_path: Union[str, Path], *, tails: Optional[List[int]]=None, output_prefix: str='pricing_tail_backarc_', output_dir: Optional[Path]=None, min_slack: int=-210, alternate_impute: bool=True) -> Dict[int, str]
+- def print_pricing_network(net: PricingNetwork, bundle: FlightsBundle) -> None
+- class ArcBuilder:
+  - def __init__(self) -> None
+  - def add(self, source: int, target: int, kind: str, *, skipped_mx_own: Optional[Iterable[int]]=None, payload: str='default') -> None
+  - def arcs(self) -> List[PricingArc]
+
+# server.py
+- def health()
+- def list_data()
+- def build_core(req: BuildCoreRequest)
+- def build_pricing(req: BuildPricingRequest)
+- def list_pricing()
+
+# utils.py
+- def _none_if_blank(value: Any) -> Optional[str]
+- def _to_int(value: Any) -> Optional[int]
+- def _parse_alternates(value: Any) -> List[int]
+- def _parse_alternates_text(value: Any) -> List[str]
+- def flights_csv_to_clean_csv(csv_path: Union[str, Path], out_csv_path: Union[str, Path, None]=None) -> Path
+- def _default_json_path(csv_path: Union[str, Path]) -> Path
+- def flights_csv_to_json(csv_path: Union[str, Path], json_path: Union[str, Path, None]=None, *, wrap_key: Optional[str]=None, indent: int=2) -> Union[List[Dict[str, Any]], Dict[str, Any]]
+- def oos_csv_to_json(csv_path: Union[str, Path], json_path: Union[str, Path, None]=None, *, wrap_key: Optional[str]=None, indent: int=2) -> Union[List[Dict[str, Any]], Dict[str, Any]]
+- def read_oos_etr_by_tail(oos_csv_path: Union[str, Path], *, start_time: Optional[int]=None, restrict_tails: Optional[Iterable[int]]=None) -> Dict[int, int]
+- def compute_reachable_tails(bundle: FlightsBundle, disrupted_tails: Iterable[int], *, reachability_logger: bool=False, log_depth: int=2, max_log_items: int=12) -> Set[int]
+- def _flight_sort_key(flight: Flight) -> Tuple[int, int, int]
+- def build_tail_sequences(flights_by_fid: Dict[int, Flight]) -> Dict[int, List[int]]
+- def _build_mx_prefix_by_tail(seq_by_tail: Dict[int, List[int]], flights_by_fid: Dict[int, Flight]) -> Dict[int, Dict[int, List[int]]]
+- def read_flights_json(input_path: Union[str, Path]) -> FlightsBundle
+- def preprocess_flights_for_recovery(flights_json_path: Union[str, Path], oos_csv_path: Union[str, Path], start_time: int, *, output_json_path: Union[str, Path, None]=None) -> Tuple[Path, Dict[int, int]]
+- def preprocess_Flights_for_recovery_withrelstarttime(flights_json_path: Union[str, Path], oos_csv_path: Union[str, Path], start_time: int, *, output_json_path: Union[str, Path, None]=None) -> Tuple[Path, Dict[int, int]]
+- def convert_flights_json_to_minutes(flights_json_path: Union[str, Path], *, output_json_path: Union[str, Path, None]=None, output_csv_path: Union[str, Path, None]=None, delay_by_tail: Optional[Dict[int, float]]=None, round_mode: str='round') -> Tuple[Path, Optional[Dict[int, int]]]
+
+# validator.py
+- def _fid_label(fid: int, bundle: FlightsBundle) -> str
+- def _log(enabled: bool, msg: str) -> None
+- def _print_rule_summary(counts: Dict[str, int]) -> None
+- def _collect_solution_routes(model: Model, bundle: FlightsBundle, *, value_tol: float=1e-06, prefixes: Tuple[str, ...]=('route_', 'seed_route_'), delay_injection_by_tail: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, injection_on_first_flight: bool=False, enable_logging: bool=False) -> List[Dict[str, object]]
+- def _collect_cancel_values(model: Model) -> Dict[int, float]
+- def validate_solution(model: Model, bundle: FlightsBundle, *, delay_injection_by_tail: Optional[Dict[int, float]]=None, etr_by_tail: Optional[Dict[int, float]]=None, delta_max_by_fid: Optional[Dict[int, float]]=None, delta_max_default: Optional[float]=None, value_tol: float=1e-06, time_tol: float=1e-06, check_original_links: bool=False, injection_on_first_flight: bool=False, cost_tol: float=1e-06, cost_rel_tol: float=1e-06, enable_validator_logging: bool=False) -> List[str]
+
+# visualizer.py
+- def plot_core_graph_plotly(core_json_path: str, *, show_non_next_edges: bool=True, lane_height: float=1.0, bar_height: float=0.45)
+- def plot_core_graph_timeline(core_json_path: str, *, show_alternates: bool=True)
+
+# visualizer_utils.py
+- def basic_network_to_core_graph(input_json_path: Union[str, Path], output_json_path: Optional[Union[str, Path]]=None, *, include_alternate_edges: bool=False, alternate_edge_kind: str='alternate') -> Dict[str, Any]
