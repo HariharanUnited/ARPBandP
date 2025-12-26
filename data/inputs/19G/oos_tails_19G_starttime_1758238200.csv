@@ -1,0 +1,2 @@
+aircraft_id,station,oos_start_epoch,etr_epoch,etr_status,datasource,starttime
+4893,DEN,1758089287,1758306600,Remote - ETR,tocs_line,1758238200

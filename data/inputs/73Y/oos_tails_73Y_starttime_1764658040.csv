@@ -1,0 +1,6 @@
+aircraft_id,station,oos_start_epoch,etr_epoch,etr_status,datasource,starttime
+213,MIA,1763822747,1766433600,Remote - ETR,tocs_base,1764658040
+234,TPA,1764652461,1764765900,Remote - ETR,tocs_line,1764658040
+244,TPA,1764577632,1764679500,Remote - ETR,tocs_line,1764658040
+276,MIA,1764616389,1767211200,Remote - ETR,tocs_base,1764658040
+298,CLE,1764213320,1764926100,Remote - ETR,tocs_line,1764658040

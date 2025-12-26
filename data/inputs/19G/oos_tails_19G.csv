@@ -1,0 +1,5 @@
+﻿aircraft_id,station,oos_start_epoch,etr_epoch,etr_status,datasource
+4877,LCQ,1756567752,1763553600,T-Hop Service ETR,tocs_base
+4893,DEN,1758089287,1758306600,Remote - ETR,tocs_line
+4894,MLB,1756473793,1759172400,Remote - ETR,tocs_base
+4899,ORD,1758423600,1758625200,,sceptre_line
